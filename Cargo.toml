@@ -1,0 +1,21 @@
+[package]
+exclude = ["target/"]
+name = "codewalk"
+version = "0.1.1"
+edition = "2021"
+rust-version = "1.70"
+license = "MIT"
+authors = ["Corum Collective LLC <engineering@corumcollective.com>"]
+repository = "https://github.com/santhsecurity/codewalk"
+description = "Fast, security-aware file tree walker — gitignore, binary detection, safe bounded reads, parallel"
+readme = "README.md"
+keywords = ["filesystem", "walker", "security", "scanner", "gitignore"]
+categories = ["filesystem"]
+
+[dependencies]
+ignore = "0.4"
+serde = { version = "1", features = ["derive"] }
+toml = "0.8"
+
+[dev-dependencies]
+tempfile = "3"
