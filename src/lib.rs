@@ -33,6 +33,8 @@
 
 #[cfg(test)]
 mod adversarial_tests;
+#[cfg(test)]
+mod public_api_tests;
 mod detect;
 /// Error types returned by codewalk APIs.
 pub mod error;
