@@ -1,7 +1,7 @@
 //! Binary file detection via magic bytes.
 
 use std::fs::File;
-use std::io::Read;
+use std::io::{Read, Seek, SeekFrom};
 use std::path::Path;
 
 /// Known binary file magic bytes.
@@ -58,6 +58,23 @@ pub fn is_binary(path: &Path) -> std::io::Result<bool> {
 
     // Check magic bytes.
     let mut file = File::open(path)?;
+    is_binary_file(path, &mut file)
+}
+
+pub(crate) fn is_binary_file(path: &Path, file: &mut File) -> std::io::Result<bool> {
+    if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+        let lower = ext.to_ascii_lowercase();
+        if BINARY_EXTENSIONS.contains(&lower.as_str()) {
+            return Ok(true);
+        }
+        if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+            if stem.ends_with(".min") && (lower == "js" || lower == "css") {
+                return Ok(true);
+            }
+        }
+    }
+
+    file.seek(SeekFrom::Start(0))?;
     let mut buf = [0u8; 16];
     let n = file.read(&mut buf)?;
     if n == 0 {

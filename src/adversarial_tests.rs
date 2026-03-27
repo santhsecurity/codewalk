@@ -389,19 +389,13 @@ fn adversarial_conflicting_extension_filters() {
     assert!(!paths.iter().any(|p| p.to_string_lossy().ends_with(".py")));
 }
 
-/// Test empty mmap threshold
+/// Regression test for removed mmap config knobs.
 #[test]
-fn adversarial_zero_mmap_threshold() {
+fn adversarial_small_file_reads_without_mmap_config() {
     let dir = tempfile::tempdir().unwrap();
     fs::write(dir.path().join("test.txt"), "small content").unwrap();
 
-    let config = WalkConfig {
-        mmap_threshold: 0, // Will mmap everything
-        use_mmap: true,
-        ..WalkConfig::default()
-    };
-
-    let walker = CodeWalker::new(dir.path(), config);
+    let walker = CodeWalker::new(dir.path(), WalkConfig::default());
     let entries = walker.walk().unwrap();
 
     assert_eq!(entries.len(), 1);
@@ -436,7 +430,12 @@ fn adversarial_files_deleted_after_discovery() {
     // Try to read content of deleted files
     for entry in entries {
         let error = entry.content().unwrap_err();
-        assert_eq!(error.kind(), std::io::ErrorKind::NotFound);
+        match error {
+            crate::error::CodewalkError::Io(io_error) => {
+                assert_eq!(io_error.kind(), std::io::ErrorKind::NotFound);
+            }
+            other => panic!("expected io error, got {other:?}"),
+        }
     }
 }
 

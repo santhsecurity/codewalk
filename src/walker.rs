@@ -1,7 +1,6 @@
 //! File tree walker — the core iteration engine.
 
 use std::collections::HashSet;
-use std::io;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::{mpsc, Arc};
@@ -10,7 +9,6 @@ use ignore::WalkBuilder;
 
 use crate::detect;
 
-const DEFAULT_MMAP_THRESHOLD: u64 = 64 * 1024;
 const DEFAULT_MAX_SYMLINK_DEPTH: usize = 16;
 const READ_CHUNK_SIZE: usize = 64 * 1024;
 
@@ -45,10 +43,6 @@ pub struct WalkConfig {
     pub exclude_extensions: HashSet<String>,
     /// Directories to always skip.
     pub exclude_dirs: HashSet<String>,
-    /// Use memory-mapped I/O for file reading (faster for large files).
-    pub use_mmap: bool,
-    /// Minimum file size for mmap (below this, use regular read).
-    pub mmap_threshold: u64,
     /// Maximum number of symlink hops allowed in any discovered path.
     pub max_symlink_depth: usize,
 }
@@ -88,8 +82,6 @@ impl Default for WalkConfig {
             include_extensions: HashSet::new(),
             exclude_extensions: HashSet::new(),
             exclude_dirs,
-            use_mmap: true,
-            mmap_threshold: DEFAULT_MMAP_THRESHOLD,
             max_symlink_depth: DEFAULT_MAX_SYMLINK_DEPTH,
         }
     }
@@ -213,20 +205,6 @@ impl WalkConfig {
         self
     }
 
-    /// Configure memory-mapped file reading.
-    #[must_use]
-    pub fn use_mmap(mut self, use_mmap: bool) -> Self {
-        self.use_mmap = use_mmap;
-        self
-    }
-
-    /// Set mmap threshold in bytes.
-    #[must_use]
-    pub fn mmap_threshold(mut self, mmap_threshold: u64) -> Self {
-        self.mmap_threshold = mmap_threshold;
-        self
-    }
-
     /// Set the maximum number of symlink hops to follow per path.
     #[must_use]
     pub fn max_symlink_depth(mut self, max_symlink_depth: usize) -> Self {
@@ -290,14 +268,14 @@ impl FileEntry {
     /// assert_eq!(entry.content_str().unwrap(), "hello");
     /// ```
     pub fn content_str(&self) -> crate::error::Result<String> {
-        std::fs::read_to_string(&self.path)
+        Ok(std::fs::read_to_string(&self.path)?)
     }
 }
 
-/// File content — either memory-mapped or heap-allocated.
+/// File content loaded from disk.
 #[derive(Debug)]
 pub enum FileContent {
-    /// Heap-allocated bytes (for small files).
+    /// Heap-allocated bytes.
     Owned(Vec<u8>),
 }
 
@@ -588,7 +566,8 @@ fn entry_allowed(path: &Path, config: &WalkConfig) -> bool {
 }
 
 fn process_path(path: &Path, config: &WalkConfig) -> crate::error::Result<Option<FileEntry>> {
-    let metadata = std::fs::metadata(path)?;
+    let mut file = std::fs::File::open(path)?;
+    let metadata = file.metadata()?;
     let size = metadata.len();
 
     // Size filter.
@@ -614,7 +593,7 @@ fn process_path(path: &Path, config: &WalkConfig) -> crate::error::Result<Option
     let is_bin = if size == 0 {
         false
     } else {
-        detect::is_binary(path)?
+        detect::is_binary_file(path, &mut file)?
     };
     if config.skip_binary && is_bin {
         return Ok(None);
@@ -681,12 +660,12 @@ mod tests {
 
     #[cfg(unix)]
     fn symlink_dir(src: &Path, dst: &Path) -> crate::error::Result<()> {
-        std::os::unix::fs::symlink(src, dst)
+        Ok(std::os::unix::fs::symlink(src, dst)?)
     }
 
     #[cfg(windows)]
     fn symlink_dir(src: &Path, dst: &Path) -> crate::error::Result<()> {
-        std::os::windows::fs::symlink_dir(src, dst)
+        Ok(std::os::windows::fs::symlink_dir(src, dst)?)
     }
 
     fn symlink_enabled_config() -> WalkConfig {
