@@ -4,19 +4,19 @@ use std::io;
 #[derive(thiserror::Error, Debug)]
 pub enum CodewalkError {
     /// An I/O error occurred while reading the file system.
-    #[error("I/O error: {0}")]
+    #[error("I/O error: {0}. Fix: verify the path exists, is readable, and that the current process has permission to walk it.")]
     Io(#[from] io::Error),
 
     /// A file is too large to process.
-    #[error("File too large: {0} bytes")]
+    #[error("file too large: {0} bytes. Fix: raise `max_file_size` or exclude the file before walking the tree.")]
     FileTooLarge(u64),
 
     /// An ignore rule or walk configuration error.
-    #[error("Walk builder error: {0}")]
+    #[error("walk builder error: {0}. Fix: verify ignore rules, symlink handling, and walk configuration values.")]
     Ignore(#[from] ignore::Error),
 
     /// A UTF-8 decoding error occurred.
-    #[error("UTF-8 decoding error: {0}")]
+    #[error("UTF-8 decoding error: {0}. Fix: call `content()` for raw bytes or skip non-UTF-8 files before decoding them as text.")]
     Utf8Error(#[from] std::string::FromUtf8Error),
 }
 
