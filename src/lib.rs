@@ -33,9 +33,9 @@
 
 #[cfg(test)]
 mod adversarial_tests;
+mod detect;
 /// Error types returned by codewalk APIs.
 pub mod error;
-mod detect;
 mod walker;
 
 pub use detect::is_binary;
