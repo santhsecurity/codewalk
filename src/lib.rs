@@ -33,6 +33,7 @@
 
 #[cfg(test)]
 mod adversarial_tests;
+pub mod error;
 mod detect;
 mod walker;
 
@@ -44,12 +45,12 @@ pub use walker::{CodeWalker, FileEntry, WalkConfig};
 /// Implement this for custom file sources (S3, git objects, archives).
 pub trait FileSource {
     /// Walk lazily and yield file entries on demand.
-    fn walk_lazy(&self) -> Box<dyn Iterator<Item = std::io::Result<FileEntry>> + '_> {
+    fn walk_lazy(&self) -> Box<dyn Iterator<Item = crate::error::Result<FileEntry>> + '_> {
         Box::new(self.walk().into_iter())
     }
 
     /// Walk and return all file entries.
-    fn walk(&self) -> Vec<std::io::Result<FileEntry>> {
+    fn walk(&self) -> Vec<crate::error::Result<FileEntry>> {
         self.walk_lazy().collect()
     }
     /// Number of files (may require a full walk).
@@ -65,7 +66,7 @@ pub trait FileSource {
     /// struct StaticSource;
     ///
     /// impl FileSource for StaticSource {
-    ///     fn walk(&self) -> Vec<std::io::Result<codewalk::FileEntry>> {
+    ///     fn walk(&self) -> Vec<crate::error::Result<codewalk::FileEntry>> {
     ///         Vec::new()
     ///     }
     /// }
@@ -78,7 +79,7 @@ pub trait FileSource {
 }
 
 impl FileSource for CodeWalker {
-    fn walk_lazy(&self) -> Box<dyn Iterator<Item = std::io::Result<FileEntry>> + '_> {
+    fn walk_lazy(&self) -> Box<dyn Iterator<Item = crate::error::Result<FileEntry>> + '_> {
         Box::new(self.walk_iter())
     }
 }
@@ -98,7 +99,7 @@ impl FileSource for CodeWalker {
 /// ```
 pub fn scan_files(
     root: impl Into<std::path::PathBuf>,
-) -> impl Iterator<Item = std::io::Result<(std::path::PathBuf, String)>> {
+) -> impl Iterator<Item = crate::error::Result<(std::path::PathBuf, String)>> {
     let walker = CodeWalker::new(root, WalkConfig::default());
     walker.into_iter().map(|entry_result| {
         let entry = entry_result?;

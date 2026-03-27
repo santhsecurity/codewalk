@@ -261,7 +261,7 @@ impl FileEntry {
     /// let entry = CodeWalker::new(dir.path(), Default::default()).walk().unwrap().remove(0);
     /// assert_eq!(entry.content().unwrap().as_bytes(), b"hello");
     /// ```
-    pub fn content(&self) -> std::io::Result<FileContent> {
+    pub fn content(&self) -> crate::error::Result<FileContent> {
         let mut file = std::fs::File::open(&self.path)?;
         let bounded_capacity = usize::try_from(self.size).unwrap_or(READ_CHUNK_SIZE);
         let mut bytes = Vec::with_capacity(bounded_capacity.min(READ_CHUNK_SIZE * 4));
@@ -289,7 +289,7 @@ impl FileEntry {
     /// let entry = CodeWalker::new(dir.path(), Default::default()).walk().unwrap().remove(0);
     /// assert_eq!(entry.content_str().unwrap(), "hello");
     /// ```
-    pub fn content_str(&self) -> std::io::Result<String> {
+    pub fn content_str(&self) -> crate::error::Result<String> {
         std::fs::read_to_string(&self.path)
     }
 }
@@ -396,7 +396,7 @@ impl CodeWalker {
     /// let files = CodeWalker::new(dir.path(), WalkConfig::default()).walk().unwrap();
     /// assert_eq!(files.len(), 1);
     /// ```
-    pub fn walk(&self) -> io::Result<Vec<FileEntry>> {
+    pub fn walk(&self) -> crate::error::Result<Vec<FileEntry>> {
         self.walk_iter().collect()
     }
 
@@ -411,7 +411,7 @@ impl CodeWalker {
     /// let count = CodeWalker::new(dir.path(), WalkConfig::default()).walk_iter().count();
     /// assert_eq!(count, 1);
     /// ```
-    pub fn walk_iter(&self) -> impl Iterator<Item = io::Result<FileEntry>> + '_ {
+    pub fn walk_iter(&self) -> impl Iterator<Item = crate::error::Result<FileEntry>> + '_ {
         let config = Arc::new(self.config.clone());
         self.build_walker().filter_map(move |result| match result {
             Ok(entry) => match entry.file_type() {
@@ -422,7 +422,7 @@ impl CodeWalker {
                 },
                 _ => None,
             },
-            Err(err) => Some(Err(io::Error::new(io::ErrorKind::Other, err))),
+            Err(err) => Some(Err(crate::error::CodewalkError::Ignore(err))),
         })
     }
 
@@ -440,7 +440,7 @@ impl CodeWalker {
     /// let rx = CodeWalker::new(dir.path(), WalkConfig::default()).walk_parallel(1);
     /// assert!(rx.recv().unwrap().is_ok());
     /// ```
-    pub fn walk_parallel(&self, threads: usize) -> mpsc::Receiver<io::Result<FileEntry>> {
+    pub fn walk_parallel(&self, threads: usize) -> mpsc::Receiver<crate::error::Result<FileEntry>> {
         // Use a bounded channel to enforce backpressure. If the consumer is slower than the disk reader,
         // an unbounded channel will buffer millions of entries in memory and cause an OOM crash.
         let (tx, rx) = mpsc::sync_channel(8192);
@@ -463,7 +463,7 @@ impl CodeWalker {
                             }
                             _ => return ignore::WalkState::Continue,
                         },
-                        Err(err) => Err(io::Error::new(io::ErrorKind::Other, err)),
+                        Err(err) => Err(crate::error::CodewalkError::Ignore(err)),
                     };
 
                     if tx.send(entry_result).is_err() {
@@ -535,8 +535,8 @@ impl CodeWalker {
 }
 
 impl IntoIterator for CodeWalker {
-    type Item = io::Result<FileEntry>;
-    type IntoIter = Box<dyn Iterator<Item = io::Result<FileEntry>>>;
+    type Item = crate::error::Result<FileEntry>;
+    type IntoIter = Box<dyn Iterator<Item = crate::error::Result<FileEntry>>>;
 
     fn into_iter(self) -> Self::IntoIter {
         let config = Arc::new(self.config.clone());
@@ -572,7 +572,7 @@ impl IntoIterator for CodeWalker {
                         }
                         _ => None,
                     },
-                    Err(err) => Some(Err(io::Error::new(io::ErrorKind::Other, err))),
+                    Err(err) => Some(Err(crate::error::CodewalkError::Ignore(err))),
                 }),
         )
     }
@@ -587,7 +587,7 @@ fn entry_allowed(path: &Path, config: &WalkConfig) -> bool {
     depth <= config.max_symlink_depth && !has_symlink_loop(path)
 }
 
-fn process_path(path: &Path, config: &WalkConfig) -> io::Result<Option<FileEntry>> {
+fn process_path(path: &Path, config: &WalkConfig) -> crate::error::Result<Option<FileEntry>> {
     let metadata = std::fs::metadata(path)?;
     let size = metadata.len();
 
@@ -627,7 +627,7 @@ fn process_path(path: &Path, config: &WalkConfig) -> io::Result<Option<FileEntry
     }))
 }
 
-fn symlink_depth(path: &Path) -> std::io::Result<usize> {
+fn symlink_depth(path: &Path) -> crate::error::Result<usize> {
     let mut depth = 0usize;
     let mut current = PathBuf::new();
 
@@ -680,12 +680,12 @@ mod tests {
     use std::os::unix::fs::PermissionsExt;
 
     #[cfg(unix)]
-    fn symlink_dir(src: &Path, dst: &Path) -> std::io::Result<()> {
+    fn symlink_dir(src: &Path, dst: &Path) -> crate::error::Result<()> {
         std::os::unix::fs::symlink(src, dst)
     }
 
     #[cfg(windows)]
-    fn symlink_dir(src: &Path, dst: &Path) -> std::io::Result<()> {
+    fn symlink_dir(src: &Path, dst: &Path) -> crate::error::Result<()> {
         std::os::windows::fs::symlink_dir(src, dst)
     }
 
