@@ -150,6 +150,17 @@ impl WalkConfig {
     }
 
     /// Set maximum file size in bytes.
+    ///
+    /// Files larger than this will be skipped. Set to 0 for unlimited.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use codewalk::WalkConfig;
+    ///
+    /// let config = WalkConfig::builder().max_file_size(1024 * 1024); // 1 MB
+    /// assert_eq!(config.max_file_size, 1_048_576);
+    /// ```
     #[must_use]
     pub fn max_file_size(mut self, max_file_size: u64) -> Self {
         self.max_file_size = max_file_size;
@@ -157,6 +168,18 @@ impl WalkConfig {
     }
 
     /// Configure whether binary files are skipped.
+    ///
+    /// When true, files detected as binary via magic bytes or extension
+    /// will be excluded from results.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use codewalk::WalkConfig;
+    ///
+    /// let config = WalkConfig::builder().skip_binary(false);
+    /// assert!(!config.skip_binary);
+    /// ```
     #[must_use]
     pub fn skip_binary(mut self, skip_binary: bool) -> Self {
         self.skip_binary = skip_binary;
@@ -164,6 +187,18 @@ impl WalkConfig {
     }
 
     /// Configure whether hidden files are skipped.
+    ///
+    /// Hidden files and directories (those starting with a dot on Unix)
+    /// are skipped when this is true.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use codewalk::WalkConfig;
+    ///
+    /// let config = WalkConfig::builder().skip_hidden(false);
+    /// assert!(!config.skip_hidden);
+    /// ```
     #[must_use]
     pub fn skip_hidden(mut self, skip_hidden: bool) -> Self {
         self.skip_hidden = skip_hidden;
@@ -171,6 +206,18 @@ impl WalkConfig {
     }
 
     /// Configure `.gitignore` handling.
+    ///
+    /// When true, `.gitignore` files are respected and matching entries
+    /// are excluded from results.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use codewalk::WalkConfig;
+    ///
+    /// let config = WalkConfig::builder().respect_gitignore(false);
+    /// assert!(!config.respect_gitignore);
+    /// ```
     #[must_use]
     pub fn respect_gitignore(mut self, respect_gitignore: bool) -> Self {
         self.respect_gitignore = respect_gitignore;
@@ -178,6 +225,18 @@ impl WalkConfig {
     }
 
     /// Configure symbolic link traversal.
+    ///
+    /// When true, symbolic links to directories are followed during the walk.
+    /// Use `max_symlink_depth` to prevent infinite loops.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use codewalk::WalkConfig;
+    ///
+    /// let config = WalkConfig::builder().follow_symlinks(true);
+    /// assert!(config.follow_symlinks);
+    /// ```
     #[must_use]
     pub fn follow_symlinks(mut self, follow_symlinks: bool) -> Self {
         self.follow_symlinks = follow_symlinks;
@@ -185,6 +244,21 @@ impl WalkConfig {
     }
 
     /// Set extensions to include.
+    ///
+    /// Only files with these extensions will be included in results.
+    /// An empty set includes all extensions.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use std::collections::HashSet;
+    /// use codewalk::WalkConfig;
+    ///
+    /// let exts: HashSet<String> = ["rs", "py"].iter().map(|s| s.to_string()).collect();
+    /// let config = WalkConfig::builder().include_extensions(exts);
+    /// assert!(config.include_extensions.contains("rs"));
+    /// assert!(config.include_extensions.contains("py"));
+    /// ```
     #[must_use]
     pub fn include_extensions(mut self, include_extensions: HashSet<String>) -> Self {
         self.include_extensions = include_extensions;
@@ -192,6 +266,19 @@ impl WalkConfig {
     }
 
     /// Set extensions to exclude.
+    ///
+    /// Files with these extensions will be skipped during the walk.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use std::collections::HashSet;
+    /// use codewalk::WalkConfig;
+    ///
+    /// let exts: HashSet<String> = ["log", "tmp"].iter().map(|s| s.to_string()).collect();
+    /// let config = WalkConfig::builder().exclude_extensions(exts);
+    /// assert!(config.exclude_extensions.contains("log"));
+    /// ```
     #[must_use]
     pub fn exclude_extensions(mut self, exclude_extensions: HashSet<String>) -> Self {
         self.exclude_extensions = exclude_extensions;
@@ -199,6 +286,20 @@ impl WalkConfig {
     }
 
     /// Set directories to always skip.
+    ///
+    /// Directories with these names will be excluded from the walk entirely.
+    /// Common defaults include `node_modules`, `.git`, and `target`.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use std::collections::HashSet;
+    /// use codewalk::WalkConfig;
+    ///
+    /// let dirs: HashSet<String> = ["vendor", "dist"].iter().map(|s| s.to_string()).collect();
+    /// let config = WalkConfig::builder().exclude_dirs(dirs);
+    /// assert!(config.exclude_dirs.contains("vendor"));
+    /// ```
     #[must_use]
     pub fn exclude_dirs(mut self, exclude_dirs: HashSet<String>) -> Self {
         self.exclude_dirs = exclude_dirs;
@@ -206,6 +307,18 @@ impl WalkConfig {
     }
 
     /// Set the maximum number of symlink hops to follow per path.
+    ///
+    /// Limits how many symbolic links can be traversed in any single path
+    /// to prevent infinite loops. Only applies when `follow_symlinks` is true.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use codewalk::WalkConfig;
+    ///
+    /// let config = WalkConfig::builder().max_symlink_depth(8);
+    /// assert_eq!(config.max_symlink_depth, 8);
+    /// ```
     #[must_use]
     pub fn max_symlink_depth(mut self, max_symlink_depth: usize) -> Self {
         self.max_symlink_depth = max_symlink_depth;
