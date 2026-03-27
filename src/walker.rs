@@ -558,7 +558,7 @@ impl IntoIterator for CodeWalker {
 
 fn entry_allowed(path: &Path, config: &WalkConfig) -> bool {
     if !config.follow_symlinks {
-        return true;
+        return symlink_depth(path).unwrap_or(usize::MAX) == 0;
     }
 
     let depth = symlink_depth(path).unwrap_or(usize::MAX);
