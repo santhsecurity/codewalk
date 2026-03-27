@@ -33,6 +33,7 @@
 
 #[cfg(test)]
 mod adversarial_tests;
+/// Error types returned by codewalk APIs.
 pub mod error;
 mod detect;
 mod walker;
@@ -66,7 +67,7 @@ pub trait FileSource {
     /// struct StaticSource;
     ///
     /// impl FileSource for StaticSource {
-    ///     fn walk(&self) -> Vec<crate::error::Result<codewalk::FileEntry>> {
+    ///     fn walk(&self) -> Vec<codewalk::error::Result<codewalk::FileEntry>> {
     ///         Vec::new()
     ///     }
     /// }
