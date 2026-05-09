@@ -3,27 +3,48 @@ use crate::{scan_files, CodeWalker, FileContent, FileEntry, FileSource, WalkConf
 use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::thread;
 
-#[derive(Clone)]
+/// CodewalkError wraps `io::Error` / `ignore::Error` which are not
+/// `Clone`, so the test sources hand out their entries via a Mutex
+/// drain on first call and an empty Vec thereafter. Every test in
+/// this file calls walk() OR walk_lazy() at most once on a given
+/// source, so this is sufficient and avoids re-implementing Clone
+/// on the public error type.
 struct StaticWalkSource {
-    entries: Vec<Result<FileEntry>>,
+    entries: Mutex<Vec<Result<FileEntry>>>,
+}
+
+impl StaticWalkSource {
+    fn new(entries: Vec<Result<FileEntry>>) -> Self {
+        Self {
+            entries: Mutex::new(entries),
+        }
+    }
 }
 
 impl FileSource for StaticWalkSource {
     fn walk(&self) -> Vec<Result<FileEntry>> {
-        self.entries.clone()
+        std::mem::take(&mut *self.entries.lock().unwrap())
     }
 }
 
 struct LazyOnlySource {
-    entries: Vec<Result<FileEntry>>,
+    entries: Mutex<Vec<Result<FileEntry>>>,
+}
+
+impl LazyOnlySource {
+    fn new(entries: Vec<Result<FileEntry>>) -> Self {
+        Self {
+            entries: Mutex::new(entries),
+        }
+    }
 }
 
 impl FileSource for LazyOnlySource {
     fn walk_lazy(&self) -> Box<dyn Iterator<Item = Result<FileEntry>> + '_> {
-        Box::new(self.entries.clone().into_iter())
+        Box::new(std::mem::take(&mut *self.entries.lock().unwrap()).into_iter())
     }
 }
 
@@ -201,12 +222,17 @@ fn file_content_empty_helpers_work() {
 
 #[test]
 fn scan_files_reads_text_and_preserves_null_bytes() {
+    // Embed null bytes in a longer string so the binary-detection
+    // heuristic (>30% non-text in first 16 bytes) keeps the file
+    // classified as text. Tests that, when scan_files DOES read a
+    // file, embedded NULs survive the round-trip.
     let dir = tempfile::tempdir().unwrap();
     let p = dir.path().join("nulls.txt");
-    fs::write(&p, b"a\0b\0c").unwrap();
+    let content = b"hello world this has a \0 inside";
+    fs::write(&p, content).unwrap();
     let out = scan_files(dir.path()).collect::<Result<Vec<_>>>().unwrap();
     assert_eq!(out.len(), 1);
-    assert_eq!(out[0].1.as_bytes(), b"a\0b\0c");
+    assert_eq!(out[0].1.as_bytes(), content);
 }
 
 #[test]
@@ -231,21 +257,14 @@ fn file_source_default_walk_lazy_uses_walk() {
     let dir = tempfile::tempdir().unwrap();
     let p = dir.path().join("a.txt");
     fs::write(&p, "x").unwrap();
-    let src = StaticWalkSource {
-        entries: vec![Ok(mk_entry(p, false))],
-    };
+    let src = StaticWalkSource::new(vec![Ok(mk_entry(p, false))]);
     let got = src.walk_lazy().collect::<Vec<_>>();
     assert_eq!(got.len(), 1);
 }
 
 #[test]
 fn file_source_default_walk_uses_walk_lazy() {
-    let src = LazyOnlySource {
-        entries: vec![Err(CodewalkError::Io(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            "boom",
-        )))],
-    };
+    let src = LazyOnlySource::new(vec![Err(CodewalkError::Io(std::io::Error::other("boom")))]);
     let got = src.walk();
     assert_eq!(got.len(), 1);
     assert!(got[0].is_err());
@@ -253,18 +272,16 @@ fn file_source_default_walk_uses_walk_lazy() {
 
 #[test]
 fn file_source_count_counts_only_ok_entries() {
-    let src = LazyOnlySource {
-        entries: vec![
-            Err(CodewalkError::Io(std::io::Error::new(
-                std::io::ErrorKind::PermissionDenied,
-                "denied",
-            ))),
-            Err(CodewalkError::Io(std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                "missing",
-            ))),
-        ],
-    };
+    let src = LazyOnlySource::new(vec![
+        Err(CodewalkError::Io(std::io::Error::new(
+            std::io::ErrorKind::PermissionDenied,
+            "denied",
+        ))),
+        Err(CodewalkError::Io(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "missing",
+        ))),
+    ]);
     assert_eq!(src.count(), 0);
 }
 
@@ -273,15 +290,13 @@ fn file_source_count_with_mixed_results() {
     let dir = tempfile::tempdir().unwrap();
     let p = dir.path().join("ok.txt");
     fs::write(&p, "ok").unwrap();
-    let src = StaticWalkSource {
-        entries: vec![
-            Ok(mk_entry(p, false)),
-            Err(CodewalkError::Io(std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                "missing",
-            ))),
-        ],
-    };
+    let src = StaticWalkSource::new(vec![
+        Ok(mk_entry(p, false)),
+        Err(CodewalkError::Io(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "missing",
+        ))),
+    ]);
     assert_eq!(src.count(), 1);
 }
 
@@ -350,4 +365,3 @@ fn concurrent_parallel_walks_on_same_tree_are_stable() {
         assert_eq!(h.join().unwrap(), 120);
     }
 }
-
