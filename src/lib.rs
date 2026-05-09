@@ -33,15 +33,15 @@
 
 #[cfg(test)]
 mod adversarial_tests;
-#[cfg(test)]
-mod public_api_tests;
 mod detect;
 /// Error types returned by codewalk APIs.
 pub mod error;
+#[cfg(test)]
+mod public_api_tests;
 mod walker;
 
 pub use detect::is_binary;
-pub use walker::{CodeWalker, FileEntry, WalkConfig};
+pub use walker::{CodeWalker, FileContent, FileEntry, WalkConfig};
 
 /// Trait for anything that walks files and yields entries.
 ///
