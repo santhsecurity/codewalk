@@ -1,22 +1,31 @@
 [package]
 exclude = ["target/"]
 name = "codewalk"
-version = "0.2.0"
-edition = "2021"
+version = "0.3.0"
+edition = "2024"
 rust-version = "1.85"
-license = "MIT"
-authors = ["Corum Collective LLC <engineering@corumcollective.com>"]
+authors = ["Santh Project <contact@santh.dev>"]
+license = "MIT OR Apache-2.0"
+description = "Walk code trees with binary detection, bounded reads, and scanner-oriented filtering"
+keywords = ["filesystem", "directory", "gitignore", "traversal", "security"]
+categories = ["filesystem", "development-tools"]
 repository = "https://github.com/santhsecurity/codewalk"
-description = "Fast, security-aware file tree walker — gitignore, binary detection, safe bounded reads, parallel"
+homepage = "https://github.com/santhsecurity/codewalk"
 readme = "README.md"
-keywords = ["filesystem", "walker", "security", "scanner", "gitignore"]
-categories = ["filesystem"]
 
 [dependencies]
-ignore = "0.4"
-serde = { version = "1", features = ["derive"] }
-thiserror = "2.0.18"
-toml = "0.8"
+hashkit = { path = "../../performance/indexing/hashkit", version = "0.1.1" }
+walkkit = { path = "../../performance/io/walkkit", version = "0.1.0" }
 
 [dev-dependencies]
-tempfile = "3"
+proptest = "=1.9.0"
+tempfile = "=3.27.0"
+
+[workspace]
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+todo = "deny"
+unimplemented = "deny"
+panic = "deny"

@@ -3,48 +3,65 @@ use crate::{scan_files, CodeWalker, FileContent, FileEntry, FileSource, WalkConf
 use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::thread;
 
-/// CodewalkError wraps `io::Error` / `ignore::Error` which are not
-/// `Clone`, so the test sources hand out their entries via a Mutex
-/// drain on first call and an empty Vec thereafter. Every test in
-/// this file calls walk() OR walk_lazy() at most once on a given
-/// source, so this is sufficient and avoids re-implementing Clone
-/// on the public error type.
 struct StaticWalkSource {
-    entries: Mutex<Vec<Result<FileEntry>>>,
-}
-
-impl StaticWalkSource {
-    fn new(entries: Vec<Result<FileEntry>>) -> Self {
-        Self {
-            entries: Mutex::new(entries),
-        }
-    }
+    entries: Vec<FileEntry>,
 }
 
 impl FileSource for StaticWalkSource {
     fn walk(&self) -> Vec<Result<FileEntry>> {
-        std::mem::take(&mut *self.entries.lock().unwrap())
+        self.entries.iter().cloned().map(Ok).collect()
     }
 }
 
-struct LazyOnlySource {
-    entries: Mutex<Vec<Result<FileEntry>>>,
-}
+struct ErrLazySource;
 
-impl LazyOnlySource {
-    fn new(entries: Vec<Result<FileEntry>>) -> Self {
-        Self {
-            entries: Mutex::new(entries),
-        }
-    }
-}
-
-impl FileSource for LazyOnlySource {
+impl FileSource for ErrLazySource {
     fn walk_lazy(&self) -> Box<dyn Iterator<Item = Result<FileEntry>> + '_> {
-        Box::new(std::mem::take(&mut *self.entries.lock().unwrap()).into_iter())
+        Box::new(std::iter::once(Err(CodewalkError::Io(
+            std::io::Error::other("boom"),
+        ))))
+    }
+}
+
+struct ErrCountSource;
+
+impl FileSource for ErrCountSource {
+    fn walk_lazy(&self) -> Box<dyn Iterator<Item = Result<FileEntry>> + '_> {
+        Box::new(
+            vec![
+                Err(CodewalkError::Io(std::io::Error::new(
+                    std::io::ErrorKind::PermissionDenied,
+                    "denied",
+                ))),
+                Err(CodewalkError::Io(std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    "missing",
+                ))),
+            ]
+            .into_iter(),
+        )
+    }
+}
+
+struct MixedLazySource {
+    ok_entry: FileEntry,
+}
+
+impl FileSource for MixedLazySource {
+    fn walk_lazy(&self) -> Box<dyn Iterator<Item = Result<FileEntry>> + '_> {
+        Box::new(
+            vec![
+                Ok(self.ok_entry.clone()),
+                Err(CodewalkError::Io(std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    "missing",
+                ))),
+            ]
+            .into_iter(),
+        )
     }
 }
 
@@ -175,7 +192,9 @@ fn file_entry_content_supports_unicode() {
     fs::write(&p, "hello, नमस्ते, こんにちは, 👋").unwrap();
 
     let entry = mk_entry(p, false);
-    assert!(entry.content().unwrap().len() > 10);
+    let content = entry.content().unwrap();
+    assert!(content.is_text());
+    assert!(content.len() > 10);
     assert!(entry.content_str().unwrap().contains("नमस्ते"));
 }
 
@@ -186,7 +205,7 @@ fn file_entry_content_str_fails_for_non_utf8_bytes() {
     fs::write(&p, vec![0xff, 0xfe, 0xfd]).unwrap();
     let entry = mk_entry(p, false);
     match entry.content_str().unwrap_err() {
-        CodewalkError::Io(err) => assert_eq!(err.kind(), std::io::ErrorKind::InvalidData),
+        CodewalkError::Utf8Error(_) => {}
         other => panic!("unexpected error variant: {other:?}"),
     }
 }
@@ -203,36 +222,74 @@ fn file_entry_content_huge_input_roundtrips() {
 }
 
 #[test]
-fn file_content_owned_helpers_work() {
-    let fc = FileContent::Owned(vec![1, 2, 3]);
+fn file_content_binary_helpers_work() {
+    let fc = FileContent::Binary(vec![1, 2, 3]);
     assert_eq!(fc.as_bytes(), &[1, 2, 3]);
     assert_eq!(fc.len(), 3);
     assert!(!fc.is_empty());
-    assert_eq!(fc.to_string(), "owned");
+    assert!(fc.is_binary());
+    assert_eq!(fc.to_string(), "binary");
     let via_ref: &[u8] = fc.as_ref();
     assert_eq!(via_ref, &[1, 2, 3]);
 }
 
 #[test]
-fn file_content_empty_helpers_work() {
-    let fc = FileContent::Owned(Vec::new());
+fn file_content_text_and_unknown_helpers_work() {
+    let text = FileContent::Text("hello".to_string());
+    assert_eq!(text.as_text(), Some("hello"));
+    assert!(text.is_text());
+    assert_eq!(text.to_string(), "text");
+
+    let fc = FileContent::Unknown(Vec::new());
     assert_eq!(fc.len(), 0);
     assert!(fc.is_empty());
+    assert!(fc.is_unknown());
+    assert_eq!(fc.to_string(), "unknown");
 }
 
 #[test]
-fn scan_files_reads_text_and_preserves_null_bytes() {
-    // Embed null bytes in a longer string so the binary-detection
-    // heuristic (>30% non-text in first 16 bytes) keeps the file
-    // classified as text. Tests that, when scan_files DOES read a
-    // file, embedded NULs survive the round-trip.
+fn file_entry_content_classifies_binary_and_unknown() {
+    let dir = tempfile::tempdir().unwrap();
+
+    let binary = dir.path().join("blob.bin");
+    fs::write(&binary, b"\x00\x01\x02\x03\x04").unwrap();
+    let binary_entry = mk_entry(binary, true);
+    let binary_content = binary_entry.content().unwrap();
+    assert!(binary_content.is_binary());
+
+    let unknown = dir.path().join("odd.txt");
+    fs::write(&unknown, vec![0xff, 0xfe, 0xfd]).unwrap();
+    let unknown_entry = mk_entry(unknown, false);
+    let unknown_content = unknown_entry.content().unwrap();
+    assert!(unknown_content.is_unknown());
+}
+
+#[test]
+fn file_entry_content_chunks_roundtrip_large_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let p = dir.path().join("chunked.txt");
+    let payload = "abcdef".repeat(50_000);
+    fs::write(&p, &payload).unwrap();
+
+    let entry = mk_entry(p, false);
+    let chunks = entry
+        .content_chunks()
+        .unwrap()
+        .collect::<Result<Vec<_>>>()
+        .unwrap();
+
+    assert!(chunks.len() > 1);
+    assert!(chunks.iter().all(|chunk| chunk.len() <= 64 * 1024));
+    assert_eq!(chunks.concat(), payload.as_bytes());
+}
+
+#[test]
+fn scan_files_skips_null_byte_content_by_default() {
     let dir = tempfile::tempdir().unwrap();
     let p = dir.path().join("nulls.txt");
-    let content = b"hello world this has a \0 inside";
-    fs::write(&p, content).unwrap();
+    fs::write(&p, b"a\0b\0c").unwrap();
     let out = scan_files(dir.path()).collect::<Result<Vec<_>>>().unwrap();
-    assert_eq!(out.len(), 1);
-    assert_eq!(out[0].1.as_bytes(), content);
+    assert!(out.is_empty());
 }
 
 #[test]
@@ -257,14 +314,16 @@ fn file_source_default_walk_lazy_uses_walk() {
     let dir = tempfile::tempdir().unwrap();
     let p = dir.path().join("a.txt");
     fs::write(&p, "x").unwrap();
-    let src = StaticWalkSource::new(vec![Ok(mk_entry(p, false))]);
+    let src = StaticWalkSource {
+        entries: vec![mk_entry(p, false)],
+    };
     let got = src.walk_lazy().collect::<Vec<_>>();
     assert_eq!(got.len(), 1);
 }
 
 #[test]
 fn file_source_default_walk_uses_walk_lazy() {
-    let src = LazyOnlySource::new(vec![Err(CodewalkError::Io(std::io::Error::other("boom")))]);
+    let src = ErrLazySource;
     let got = src.walk();
     assert_eq!(got.len(), 1);
     assert!(got[0].is_err());
@@ -272,16 +331,7 @@ fn file_source_default_walk_uses_walk_lazy() {
 
 #[test]
 fn file_source_count_counts_only_ok_entries() {
-    let src = LazyOnlySource::new(vec![
-        Err(CodewalkError::Io(std::io::Error::new(
-            std::io::ErrorKind::PermissionDenied,
-            "denied",
-        ))),
-        Err(CodewalkError::Io(std::io::Error::new(
-            std::io::ErrorKind::NotFound,
-            "missing",
-        ))),
-    ]);
+    let src = ErrCountSource;
     assert_eq!(src.count(), 0);
 }
 
@@ -290,13 +340,9 @@ fn file_source_count_with_mixed_results() {
     let dir = tempfile::tempdir().unwrap();
     let p = dir.path().join("ok.txt");
     fs::write(&p, "ok").unwrap();
-    let src = StaticWalkSource::new(vec![
-        Ok(mk_entry(p, false)),
-        Err(CodewalkError::Io(std::io::Error::new(
-            std::io::ErrorKind::NotFound,
-            "missing",
-        ))),
-    ]);
+    let src = MixedLazySource {
+        ok_entry: mk_entry(p, false),
+    };
     assert_eq!(src.count(), 1);
 }
 

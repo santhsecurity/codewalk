@@ -1,15 +1,23 @@
 # codewalk
 
-Walk a directory tree. Skip binaries, respect .gitignore, memory-map large files. Parallel mode for scanning big codebases.
+Walk a directory tree. Skip binaries, respect `.gitignore`, stream file contents in bounded chunks, and scan large trees in parallel.
 
 ```rust
 use codewalk::{CodeWalker, WalkConfig};
 
 let walker = CodeWalker::new("/path/to/repo", WalkConfig::default());
-for entry in walker.walk() {
+for entry in walker.walk().unwrap() {
     println!("{} ({} bytes)", entry.path.display(), entry.size);
-    let content = entry.content_str().unwrap();
-    // scan the content
+    match entry.content().unwrap() {
+        codewalk::FileContent::Text(text) => {
+            // scan UTF-8 text
+            let _ = text.len();
+        }
+        codewalk::FileContent::Binary(bytes) | codewalk::FileContent::Unknown(bytes) => {
+            // handle raw bytes
+            let _ = bytes.len();
+        }
+    }
 }
 ```
 
@@ -25,7 +33,7 @@ It respects .gitignore rules automatically.
 
 ## Why not walkdir or ignore?
 
-`walkdir` gives you paths. `ignore` gives you paths respecting gitignore. Neither reads file content, detects binary files by magic bytes, or memory-maps large files. If you're building a security scanner or code analyzer, you need all three: walk, skip binaries, read content efficiently. codewalk does that in one call. Without it you're stacking walkdir + a binary detector + a gitignore parser + an mmap wrapper + size limits. codewalk is that stack, tested and ready.
+`walkdir` gives you paths. `ignore` gives you paths respecting gitignore. Neither reads file content, detects binary files by magic bytes, or offers a bounded chunked read path. If you're building a security scanner or code analyzer, you need all three: walk, skip binaries, read content efficiently. codewalk does that in one call. Without it you're stacking walkdir + a binary detector + a gitignore parser + chunked I/O + size limits. codewalk is that stack, tested and ready.
 
 ## Configuration
 
@@ -59,13 +67,20 @@ for entry in rx {
 }
 ```
 
-## Memory-mapped reading
+## Content loading
 
-Files above 64KB (configurable) are memory-mapped instead of read into a Vec. Below that threshold, regular read is faster.
+`entry.content()` classifies content as `Text`, `Binary`, or `Unknown`. `entry.content_chunks()` streams the same file in bounded 64 KiB chunks when you need backpressure-friendly reads.
 
 ```rust
 let content = entry.content().unwrap();
 let bytes: &[u8] = content.as_bytes();
+
+let chunks = entry
+    .content_chunks()
+    .unwrap()
+    .collect::<codewalk::error::Result<Vec<_>>>()
+    .unwrap();
+assert!(chunks.iter().all(|chunk| chunk.len() <= 64 * 1024));
 ```
 
 ## Binary detection

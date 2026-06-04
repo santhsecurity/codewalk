@@ -1,6 +1,7 @@
+#![allow(clippy::unwrap_used, clippy::expect_used)]
 //! Example using ignore patterns.
 //!
-//! Run: cargo run --example ignore_patterns -- /path
+//! Run: cargo run --example `ignore_patterns` -- /path
 
 use codewalk::{CodeWalker, WalkConfig};
 
