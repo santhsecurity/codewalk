@@ -24,12 +24,11 @@ fn create_dir<P: AsRef<Path>>(path: P) {
 }
 
 fn walk_paths(walker: CodeWalker) -> Vec<PathBuf> {
-    let mut paths = Vec::new();
-    for result in walker.walk_iter() {
-        if let Ok(entry) = result {
-            paths.push(entry.path);
-        }
-    }
+    let mut paths: Vec<PathBuf> = walker
+        .walk_iter()
+        .map_while(Result::ok)
+        .map(|entry| entry.path)
+        .collect();
     paths.sort();
     paths
 }
