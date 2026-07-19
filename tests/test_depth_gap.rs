@@ -2,6 +2,8 @@
 
 use codewalk::{CodeWalker, WalkConfig};
 use std::fs;
+
+#[cfg(unix)]
 use std::os::unix::fs::symlink;
 
 #[test]
@@ -23,13 +25,9 @@ fn gap_test_toctou_large_file_replacement() {
     let entry = &entries[0];
     let content = entry.content().unwrap();
 
-    // Depending on what we WANT:
-    // If we want it to still read the file fully up to its actual new size:
-    // assert_eq!(content.len(), 100);
-    // If we want it to respect max_file_size:
-    // assert!(content.len() <= 10);
-    // Let's assert it reads the full new file, or fails.
-    let _ = content.len();
+    // The file grew after the walk; content() must read the full current
+    // file rather than silently stopping at the stale cached size.
+    assert_eq!(content.len(), 100);
 }
 
 #[cfg(unix)]

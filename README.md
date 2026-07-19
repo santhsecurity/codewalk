@@ -1,5 +1,11 @@
 # codewalk
 
+[![Crates.io](https://img.shields.io/crates/v/codewalk)](https://crates.io/crates/codewalk)
+[![Docs.rs](https://docs.rs/codewalk/badge.svg)](https://docs.rs/codewalk)
+[![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](LICENSE-MIT)
+
+Part of [Santh](https://santh.dev) - open source Rust security and infrastructure tooling. Follow [@SanthProject](https://x.com/SanthProject) on X.
+
 Walk a directory tree. Skip binaries, respect `.gitignore`, stream file contents in bounded chunks, and scan large trees in parallel.
 
 ```rust

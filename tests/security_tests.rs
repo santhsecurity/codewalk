@@ -2,11 +2,13 @@
 
 use std::fs::{self, File};
 use std::io::Write;
-use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
 use tempfile::TempDir;
 
 use codewalk::{CodeWalker, WalkConfig};
+
+#[cfg(unix)]
+use std::os::unix::fs::symlink;
 
 fn setup_test_dir() -> TempDir {
     tempfile::tempdir().expect("failed to create temp dir")
@@ -32,6 +34,7 @@ fn walk_paths(walker: CodeWalker) -> Vec<PathBuf> {
     paths
 }
 
+#[cfg(unix)]
 #[test]
 fn test_01_symlink_outside_root() {
     let td = setup_test_dir();
@@ -57,6 +60,7 @@ fn test_01_symlink_outside_root() {
     assert!(!paths.iter().any(|p| p.ends_with("secret.txt")));
 }
 
+#[cfg(unix)]
 #[test]
 fn test_02_symlink_loop() {
     let td = setup_test_dir();
@@ -78,6 +82,7 @@ fn test_02_symlink_loop() {
     let _paths = walk_paths(walker);
 }
 
+#[cfg(unix)]
 #[test]
 fn test_03_symlink_chain_depth() {
     let td = setup_test_dir();

@@ -1,7 +1,7 @@
 [package]
-exclude = ["target/"]
+exclude = ["target/", "BACKLOG.md"]
 name = "codewalk"
-version = "0.3.0"
+version = "0.3.2"
 edition = "2024"
 rust-version = "1.85"
 authors = ["Santh Project <contact@santh.dev>"]
@@ -9,13 +9,12 @@ license = "MIT OR Apache-2.0"
 description = "Walk code trees with binary detection, bounded reads, and scanner-oriented filtering"
 keywords = ["filesystem", "directory", "gitignore", "traversal", "security"]
 categories = ["filesystem", "development-tools"]
-repository = "https://github.com/santhsecurity/codewalk"
-homepage = "https://github.com/santhsecurity/codewalk"
+repository = "https://github.com/santhreal/codewalk"
+homepage = "https://santh.dev"
 readme = "README.md"
 
 [dependencies]
-hashkit = { path = "../../performance/indexing/hashkit", version = "0.1.1" }
-walkkit = { path = "../../performance/io/walkkit", version = "0.1.0" }
+walkkit = { version = "0.1.0" }
 
 [dev-dependencies]
 proptest = "=1.9.0"

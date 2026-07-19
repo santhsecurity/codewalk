@@ -1,4 +1,4 @@
-//! WAVE2 — codewalk public-API invariants (WalkConfig + FileContent + detect).
+//! WAVE2 (codewalk public-API invariants (WalkConfig + FileContent + detect)).
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use proptest::prelude::*;
@@ -12,7 +12,11 @@ fn default_max_file_size_is_positive() {
 
 #[test]
 fn artifact_defaults_has_no_exclude_dirs() {
-    assert!(codewalk::WalkConfig::artifact_defaults().exclude_dirs.is_empty());
+    assert!(
+        codewalk::WalkConfig::artifact_defaults()
+            .exclude_dirs
+            .is_empty()
+    );
 }
 
 // ---- properties over arbitrary byte input ----
