@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.3.5] - 2026-08-07
+
+### Added
+- Re-exported full `walkkit` API (`Walker`, `WalkItem`, `WalkError`, `WalkOp`, `WalkedFile`, `filter`) from `codewalk` compatibility facade.
+- Proving tests for facade re-exports, error propagation, fail-closed filter compilation, and invalid configuration handling.
+
+### Changed
+- Audited silent-fallback and fail-closed error propagation across walk/parse/detect paths.
+- Pruned completed rows from `BACKLOG.md`.
+
 ## [0.3.4] - 2026-08-07
 
 ### Changed

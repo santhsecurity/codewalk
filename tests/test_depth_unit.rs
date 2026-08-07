@@ -185,3 +185,49 @@ fn test_file_content_unknown() {
     let res = entry.content_str();
     assert!(res.is_err());
 }
+#[test]
+fn test_facade_reexports_walker_and_error_types() {
+    use codewalk::{WalkError, WalkItem, WalkOp, Walker};
+
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("test.rs"), "fn main() {}").unwrap();
+
+    let walker = Walker::new().add_root(dir.path()).with_parallelism(1);
+    let items: Vec<WalkItem> = walker.walk().unwrap().collect();
+    assert!(!items.is_empty());
+
+    let file_count = items
+        .into_iter()
+        .filter_map(|item| match item {
+            WalkItem::File(f) => Some(f),
+            WalkItem::Error(_) => None,
+        })
+        .count();
+    assert_eq!(file_count, 1);
+
+    let op = WalkOp::ReadDir;
+    assert_eq!(format!("{op}"), "read_dir");
+
+    let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "file missing");
+    let walk_err = WalkError::new(dir.path().join("missing.txt"), op, io_err);
+    assert!(format!("{walk_err}").contains("read_dir"));
+    assert_eq!(walk_err.path, dir.path().join("missing.txt"));
+}
+
+#[test]
+fn test_facade_filter_reexport() {
+    use codewalk::filter::FileFilter;
+
+    let compiled = FileFilter::new().add_include("*.rs").compile().unwrap();
+    assert!(compiled.is_match(std::path::Path::new("main.rs")));
+}
+
+#[test]
+fn test_fail_closed_invalid_toml_config() {
+    let invalid_toml = "max_file_size = 'not_a_number'";
+    let res = WalkConfig::from_toml(invalid_toml);
+    assert!(
+        res.is_err(),
+        "from_toml must fail closed on invalid configuration"
+    );
+}
