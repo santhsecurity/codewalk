@@ -21,6 +21,6 @@
 //! New code should depend on `walkkit` directly.
 
 pub use walkkit::{
-    CodeWalker, FileContent, FileContentChunks, FileEntry, WalkConfig, WalkError, WalkItem,
-    WalkOp, WalkedFile, Walker, detect, error, filter, probe, sandbox,
+    CodeWalker, Error, FileContent, FileContentChunks, FileEntry, MAX_WALK_PATH_BYTES, WalkConfig,
+    WalkError, WalkItem, WalkOp, WalkedFile, Walker, detect, error, filter, probe, sandbox,
 };

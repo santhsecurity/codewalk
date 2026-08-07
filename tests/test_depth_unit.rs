@@ -231,3 +231,25 @@ fn test_fail_closed_invalid_toml_config() {
         "from_toml must fail closed on invalid configuration"
     );
 }
+
+#[test]
+fn test_facade_reexports_max_walk_path_bytes_and_error() {
+    use codewalk::{Error, MAX_WALK_PATH_BYTES};
+    assert!(MAX_WALK_PATH_BYTES > 0);
+
+    let err: Error = Error::InvalidFilterPattern {
+        message: "test invalid pattern".to_string(),
+    };
+    assert!(format!("{err}").contains("test invalid pattern"));
+}
+
+#[test]
+fn test_fail_closed_invalid_glob_pattern() {
+    use codewalk::filter::FileFilter;
+
+    let res = FileFilter::new().add_include("[invalid-glob").compile();
+    assert!(
+        res.is_err(),
+        "FileFilter compile must fail closed on malformed glob pattern"
+    );
+}

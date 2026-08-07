@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.3.6] - 2026-08-07
+
+### Added
+- Re-exported top-level `Error` enum and `MAX_WALK_PATH_BYTES` constant from `walkkit` in `codewalk` compatibility facade.
+- Proving unit tests in `test_depth_unit.rs` covering `Error` variants, `MAX_WALK_PATH_BYTES`, and fail-closed `FileFilter` compilation on invalid glob patterns.
+
+### Changed
+- Audited silent-fallback and fail-closed error propagation across walk/parse/detect paths.
+- Verified exact authors metadata and honest beta status.
+
 ## [0.3.5] - 2026-08-07
 
 ### Added
