@@ -4,7 +4,10 @@
 [![Docs.rs](https://docs.rs/codewalk/badge.svg)](https://docs.rs/codewalk)
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](LICENSE-MIT)
 
-Part of [Santh](https://santh.dev) - open source Rust security and infrastructure tooling. Follow [@SanthProject](https://x.com/SanthProject) on X.
+Part of [Santh](https://santh.dev) - open source Rust security and infrastructure tooling.
+
+> **Note:** `codewalk` is a compatibility re-export facade over [`walkkit`](https://crates.io/crates/walkkit). New code should depend directly on `walkkit`.
+
 
 Walk a directory tree. Skip binaries, respect `.gitignore`, stream file contents in bounded chunks, and scan large trees in parallel.
 
@@ -99,7 +102,6 @@ Pull requests are welcome. There is no such thing as a perfect crate. If you fin
 
 ## License
 
-MIT. Copyright 2026 CORUM COLLECTIVE LLC.
-
+Licensed under either of [Apache License, Version 2.0](LICENSE-APACHE) or [MIT license](LICENSE-MIT) at your option.
 [![crates.io](https://img.shields.io/crates/v/codewalk.svg)](https://crates.io/crates/codewalk)
 [![docs.rs](https://docs.rs/codewalk/badge.svg)](https://docs.rs/codewalk)

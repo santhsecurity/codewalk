@@ -12,7 +12,7 @@ Provides a safe interface for directory traversal and file reading. Without it, 
 Zero-allocation, high-throughput file discovery that flawlessly skips unreadable or malicious file system structures and delegates efficiently to `walkkit`.
 
 ## Role in Ecosystem
-- **Depends on:** hashkit, walkkit
+- **Depends on:** walkkit
 - **Depended on by:** warpscan, internal local scanning tools
 - **Relationship to warpscan:** Used during local repository scans to efficiently discover and filter target source files.
 - **Standalone value:** YES. Useful for any Rust tool that needs fast, safe, and filtered directory traversal, though users are encouraged to use `walkkit` directly.
