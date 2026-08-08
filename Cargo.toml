@@ -17,7 +17,7 @@ readme = "README.md"
 status = "beta"
 
 [dependencies]
-walkkit = { version = "0.1.2" }
+walkkit = { path = "../../performance/io/walkkit", version = "0.1.2" }
 
 [dev-dependencies]
 proptest = "=1.9.0"
